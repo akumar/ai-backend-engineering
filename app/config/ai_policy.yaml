@@ -1,0 +1,86 @@
+# AI policy configuration: logging, redaction, and rate-limiting
+
+logging:
+  structured_fields:
+    - correlation_id
+    - trace_id
+    - span_id
+    - service
+    - endpoint
+    - user_id_hashed
+    - tenant_id
+    - model_name
+    - model_version
+    - request_size_bytes
+    - response_size_bytes
+    - latency_ms
+    - token_usage
+    - status_code
+    - error_type
+  sampling:
+    full_prompt_percent: 0.5 # percent of requests whose full prompt/response are kept in secure audit logs
+    error_trace_percent: 100 # capture full stack trace on errors
+
+redaction:
+  prohibited_patterns:
+    - "API_KEY"
+    - "SECRET"
+    - "PRIVATE_KEY"
+    - "SSN"
+    - "CREDIT_CARD"
+    - "JWT"
+  rules:
+    - name: mask_secrets
+      description: Replace known secret patterns with <REDACTED:{type}> placeholders
+    - name: hash_identifiers
+      description: One-way hash user and tenant identifiers before sending to logs or models
+    - name: pii_detection
+      description: If PII detected (SSN, CC, PHI), block or redact unless explicitly allowed and audited
+
+prohibited_to_model:
+  - api_keys
+  - private_keys
+  - raw_auth_tokens
+  - full_ssn
+  - full_credit_card
+  - unredacted_phi
+  - internal_debug_tokens
+  - proprietary_source_code
+
+rate_limits:
+  edge:
+    description: Global and per-IP limits at CDN/API Gateway
+    default:
+      requests_per_minute: 1000
+      burst: 200
+  tenant:
+    description: Per-tenant and per-api-key quotas enforced in middleware
+    default:
+      requests_per_minute: 500
+      burst: 100
+  user:
+    description: Per-user/session limits for fairness
+    default:
+      requests_per_minute: 60
+      burst: 20
+  model_invocation:
+    description: Controls on model concurrency and tokens
+    max_concurrent_requests: 10
+    max_tokens_per_request: 4096
+    retry_policy:
+      retries: 2
+      backoff: exponential
+      jitter: true
+
+monitoring_alerts:
+  - name: high_error_rate
+    threshold: 5% # error rate
+    window: 5m
+  - name: high_latency
+    threshold_ms: 2000
+    window: 5m
+
+notes: |
+  - Use `Retry-After` headers when rejecting requests due to rate limits.
+  - Apply defense-in-depth: edge -> middleware -> app -> model layer.
+  - Keep audit logs in an access-controlled store and rotate retention for sampled full prompts.
