@@ -1,7 +1,7 @@
-from pydantic import BaseModel, AnyUrl
-from typing import List, Optional
-from dotenv import load_dotenv
 import os
+
+from dotenv import load_dotenv
+from pydantic import AnyUrl, BaseModel
 
 load_dotenv()
 
@@ -18,8 +18,8 @@ class Settings(BaseModel):
     secret_key: str = _SECRET_KEY
     algorithm: str = _ALGORITHM
     access_token_expire_minutes: int = _ACCESS_TOKEN_EXPIRE_MINUTES
-    database_url: Optional[AnyUrl] = None
-    allowed_hosts: List[str] = ["*"]
+    database_url: AnyUrl | None = None
+    allowed_hosts: list[str] = ["*"]
     log_level: str = "INFO"
 
 
