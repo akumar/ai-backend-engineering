@@ -1,9 +1,9 @@
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
-from passlib.context import CryptContext
+from passlib.context import CryptContext  # type: ignore[import-untyped]
 from pydantic import BaseModel
 
 from app.config import settings
@@ -11,7 +11,7 @@ from app.config import settings
 router = APIRouter()
 
 # Simple in-memory user "store" for demo purposes
-fake_users_db: dict[str, dict] = {}
+fake_users_db: dict[str, dict[str, str]] = {}
 
 # Use `sha256_crypt` here because the environment's bcrypt build
 # caused compatibility errors with passlib (bcrypt backend issues
@@ -48,11 +48,11 @@ class UserCreate(BaseModel):
 
 # Password utilities
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+    return pwd_context.verify(plain_password, hashed_password)  # type: ignore[no-any-return]
 
 
 def get_password_hash(password: str) -> str:
-    return pwd_context.hash(password)
+    return pwd_context.hash(password)  # type: ignore[no-any-return]
 
 
 # Auth helpers
@@ -72,9 +72,11 @@ def authenticate_user(username: str, password: str) -> UserInDB | None:
     return user
 
 
-def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
+def create_access_token(
+    data: dict[str, str], expires_delta: timedelta | None = None
+) -> str:
     to_encode = data.copy()
-    expire = datetime.utcnow() + (
+    expire = datetime.now(UTC) + (
         expires_delta
         if expires_delta
         else timedelta(minutes=settings.access_token_expire_minutes or 30)
@@ -96,13 +98,13 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
     algorithm = settings.algorithm or "HS256"
     try:
         payload = jwt.decode(token, secret_key, algorithms=[algorithm])
-        username: str = payload.get("sub")
+        username: str | None = payload.get("sub")
         if username is None:
             raise credentials_exception
         token_data = TokenData(username=username)
     except JWTError:
         raise credentials_exception
-    user = get_user(username=token_data.username)
+    user = get_user(username=token_data.username or "")
     if user is None:
         raise credentials_exception
     return User(username=user.username)
