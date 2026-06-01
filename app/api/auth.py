@@ -73,7 +73,7 @@ def authenticate_user(username: str, password: str) -> UserInDB | None:
 
 
 def create_access_token(
-    data: dict[str, str], expires_delta: timedelta | None = None
+    data: dict[str, str | datetime], expires_delta: timedelta | None = None
 ) -> str:
     to_encode = data.copy()
     expire = datetime.now(UTC) + (
