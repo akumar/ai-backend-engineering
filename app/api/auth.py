@@ -1,10 +1,9 @@
 from datetime import datetime, timedelta
-from typing import Optional, Dict
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from jose import JWTError, jwt
 from passlib.context import CryptContext
-from jose import jwt, JWTError
 from pydantic import BaseModel
 
 from app.config import settings
@@ -12,7 +11,7 @@ from app.config import settings
 router = APIRouter()
 
 # Simple in-memory user "store" for demo purposes
-fake_users_db: Dict[str, Dict] = {}
+fake_users_db: dict[str, dict] = {}
 
 # Use `sha256_crypt` here because the environment's bcrypt build
 # caused compatibility errors with passlib (bcrypt backend issues
@@ -23,6 +22,7 @@ fake_users_db: Dict[str, Dict] = {}
 pwd_context = CryptContext(schemes=["sha256_crypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/login")
 
+
 # Pydantic schemas
 class Token(BaseModel):
     access_token: str
@@ -30,7 +30,7 @@ class Token(BaseModel):
 
 
 class TokenData(BaseModel):
-    username: Optional[str] = None
+    username: str | None = None
 
 
 class User(BaseModel):
@@ -56,14 +56,14 @@ def get_password_hash(password: str) -> str:
 
 
 # Auth helpers
-def get_user(username: str) -> Optional[UserInDB]:
+def get_user(username: str) -> UserInDB | None:
     user = fake_users_db.get(username)
     if user:
         return UserInDB(**user)
     return None
 
 
-def authenticate_user(username: str, password: str) -> Optional[UserInDB]:
+def authenticate_user(username: str, password: str) -> UserInDB | None:
     user = get_user(username)
     if not user:
         return None
@@ -72,9 +72,13 @@ def authenticate_user(username: str, password: str) -> Optional[UserInDB]:
     return user
 
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
     to_encode = data.copy()
-    expire = datetime.utcnow() + (expires_delta if expires_delta else timedelta(minutes=settings.access_token_expire_minutes or 30))
+    expire = datetime.utcnow() + (
+        expires_delta
+        if expires_delta
+        else timedelta(minutes=settings.access_token_expire_minutes or 30)
+    )
     to_encode.update({"exp": expire})
     secret_key = settings.secret_key or "change-me"
     algorithm = settings.algorithm or "HS256"
@@ -110,7 +114,10 @@ async def register(user: UserCreate):
     if user.username in fake_users_db:
         raise HTTPException(status_code=400, detail="User already exists")
     hashed = get_password_hash(user.password)
-    fake_users_db[user.username] = {"username": user.username, "hashed_password": hashed}
+    fake_users_db[user.username] = {
+        "username": user.username,
+        "hashed_password": hashed,
+    }
     return User(username=user.username)
 
 
